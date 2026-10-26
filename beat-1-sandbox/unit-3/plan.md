@@ -69,3 +69,4 @@ Nothing changed in substance; the plan held. The build touched only `.env.exampl
 Two small things differ from what I wrote, and neither changes the scope or the approach:
 - Step 5 of the test plan was an expectation that the later line in `.env` would win over the template's placeholder. I ran it and confirmed it: the control still loaded `'sk-or-test-0000'`.
 - In step 2 I widened the `sed` range from my repro's `16,19p` to `16,20p` so the new line is visible, which is why the before and after output for that step has one extra line.
+- For the PR's test evidence I re-ran steps 1 to 5 on both `main` and the branch in the project's own Python 3.12 `.venv` (built with `pip install -e ".[dev]"`) instead of the throwaway Python 3.9 venv from my repro, so the repo's checks (`make test-unit`, `make lint`, `make typecheck`) could run in the same environment. The results match the 3.9 run.
