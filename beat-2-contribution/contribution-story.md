@@ -55,10 +55,9 @@ happened; these entries are the toolkit's own timeline.
 All four entries are graded. Keep every heading below, and fill each
 one in the week it belongs to.
 
-**Unit 5: [one line on the tool work]**
+**Unit 5: Built issue-scout, a gh search funnel driven by my fit profile, ranking rules, and my Unit 1 rubric**
 
-[2-4 sentences: what you built (the scout, your strategy), what broke
-or fell short, what changed because of it.]
+I turned my Unit 1 issue-select skill into issue-scout by writing seven `gh search issues` queries from my fit profile (Python, documentation, and good-first-issue work in Java, Kotlin, Swift, and React), plus ranking rules that demote owner-filed issues and keep one issue per repo. Testing the queries before scanning showed GitHub's default sort let one personal repo fill 72 of 100 Python results, so I switched to sorting by reactions, which spread the same query across 79 repos. The first scan still put two rejects in the top 5: a 2021 issue ranked #1 because a bot touch refreshed its `updatedAt`, and another already had a linked draft PR, so I added a `createdAt` cutoff and a `-linked:pr` filter and confirmed with a free local dry run that both dropped out. Grading my picks also showed my rubric's AI-policy check only reads written policy, so it passed DrumBeatRepo even though the owner had just deleted a contributor's AI-written file as "old ai crap" but it might be unrelated; I logged that as a rubric patch to make.
 
 **Unit 6: [one line on the tool work]**
 
