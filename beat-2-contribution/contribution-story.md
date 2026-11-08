@@ -66,10 +66,9 @@ I merged my three voice-guide copies into one guide at `~/.claude/voice-guard/`,
 
 I built my ship manifest from `.github/workflows/tests.yml` (ESLint, Karma, Vitest with coverage, and the Scala tests) and ran each command from the clone root on `main` before changing code; I almost excluded Karma because Chrome crashed inside Claude Code's sandbox, until it passed 91/91 outside it and I found that Karma, not Vitest, runs the tests for both files I changed. On my branch the ship-gate passed all four checks and all eight pr-precheck checks, but its voice-guide notes caught a claim in my PR draft (that `no-unused-vars` was a no-op) with no output behind it and a line that read close to a promise. I added the preset output to `test_evidence.md`, reworded both lines, re-ran the voice guard and ship-gate to a second PASS, and opened PR #633 through Claude Code, where the hook let it through on that PASS.
 
-**Unit 8: [one line on the tool work]**
+**Unit 8: Wrote a playbook from the repo's real reply times and ran the PR monitor on PR #633**
 
-[2-4 sentences: the PR-monitor and your playbook. What it read, what it
-drafted, what you did with the draft.]
+I wrote my playbook's staleness thresholds from data: the owner gave a first response within hours on 5 of 5 recent outside PRs, so I set a 4-day nudge threshold and a rule that bot comments don't count as a maintainer response. On PR #633 the monitor read CodeRabbit's review and drafted "No reply to send. Wait note only.", with my earliest nudge date (2026-11-12) and a note that the `solo()` nitpick was the stronger one. It fell short in one place: it said both nitpicks were about code my PR changed, which read my "bot review" rule more loosely than I meant it, since the mute note is an older test gap. So I didn't follow the draft as written: I added only the `solo()` regression test (280eb19), verified it fails without my line, and posted my own one-line reply through the voice guard instead of waiting silently.
 
 ---
 
@@ -191,7 +190,7 @@ Deliberately not changing: the four active functional rules or their options; th
 
 Unknowns: I'm reading the owner's "verify the consistency" between the two blocks as "the test block switches off exactly the functional rules that are active". It could also mean matching their comment style (inline comments vs. one heading per group) or lining up the typed-rule overrides. I'll name my reading in the PR description and adjust if the owner meant something else.
 
-Deviations: none yet.
+Deviations: 2026-11-08, after the PR opened, I added a regression test for `solo()` (commit 280eb19). The plan said no new test was needed, but CodeRabbit's review showed that no test covered the `events.clear()` line I moved into `solo()`. I added the test and said so on the PR; I didn't act on its other note (asserting `clear()` in the mute test), because that covers behaviour this PR doesn't change.
 
 **Toolkit**
 
@@ -210,7 +209,7 @@ Three observable checks, all run on 2026-11-07 on branch `627-chore-remove-some-
 2. **The config cleanup changes nothing that gets linted.** I saved `npx eslint --print-config` for a service (`sequencer.service.ts`), a component (`app.component.ts`), and a spec (`sequencer.service.spec.ts`) before deleting the 9 lines, and again after. In all three, the only differences are the removed `functional/*` entries, every one of which was `0`; no rule was added or changed severity.
 3. **The repo's own CI checks**, run from the clone root as listed in my ship manifest (taken from `.github/workflows/tests.yml`): Karma `npm run test-ci` 91/91 pass, which includes `sequencer.service.spec.ts` and `audio-engine.adapter.spec.ts`, the tests for both files I changed; Vitest `npm run test-vitest-coverage` 29/29 pass; Scala `sbt testFull` 37/37 pass. CI's i18n check passes on `main` but isn't in my manifest because this PR touches no translation files.
 
-I didn't add a new test: the change is to lint findings and lint config, and the lint run itself is the check that fails before and passes after. The `clearTrackEvents()` change is covered by the existing `audio-engine.adapter.spec.ts`.
+4. **A regression test for the moved `events.clear()`** (added after the PR opened, commit 280eb19). When I opened the PR I hadn't added a test, because the lint run is the check that fails before and passes after, and I assumed the existing `audio-engine.adapter.spec.ts` covered `clearTrackEvents()`. CodeRabbit's review pointed out that nothing tested `solo()`, the function I moved `events.clear()` into, and that was true. The new test plays two tracks, solos one through `syncTracks()`, and checks that the other track's event map is empty. Karma now passes 92/92, and with `events.clear()` temporarily removed from `solo()` the new test fails (`Expected 2 to be 0`), so it guards the line my PR moved.
 
 **Toolkit**
 
@@ -239,6 +238,10 @@ Fixed the 3 warnings (commit 248ccf1). Decision: `clearTrackEvents()` couldn't j
 
 Config cleanup (commit a5e6477). My scoped orientation run said every `'off'` functional rule was a no-op; before trusting it I saved `--print-config` output for a service, a component, and a spec, deleted the 9 lines, and compared: only the removed entries (all `0`) differ. Lint now reports 0 problems, and Karma (91), Vitest (29), and the Scala tests (37) all pass. Decisions: I left l53 (`prefer-readonly-parameter-types`) and the test block's `no-unused-vars` alone because they aren't functional rules, and I'll mention them in the PR; I included the components block's two `'off'` lines even though the owner only named l27 and l123, because they're the same kind of no-op. Wrong turn: Karma first failed with `Failed to get the path for 1001` because Chrome couldn't start inside Claude Code's sandbox; run outside it, all 91 tests passed.
 
+**2026-11-08**
+
+Opened PR #633 after a second ship-gate PASS. CodeRabbit reviewed it within minutes with two "Trivial / Low value" nitpicks. I checked both against the spec: the mute test only asserts that the map is deleted (an older gap my PR didn't create), but `solo()` had no test at all, so removing the `events.clear()` I moved there would have broken nothing visible. Decision: add a `solo()` regression test and skip the mute one. I verified the test passes (Karma 92/92) and fails with `events.clear()` removed (`Expected 2 to be 0`), committed it as 280eb19, pushed it to the PR, and posted a one-line reply through the voice guard explaining both choices.
+
 **Toolkit**
 
 - Tool: Claude Code working in my clone with `CLAUDE.local.md` loaded, so each session started with the scope, the file map, and the test commands instead of re-reading the repo.
@@ -256,7 +259,8 @@ Config cleanup (commit a5e6477). My scoped orientation run said every `'off'` fu
 
 **Maintainer Feedback:**
 
-- 2026-11-08: none yet. CodeRabbit (the repo's AI review bot) started a review; the repo's own "Tests" workflow hadn't run yet, which is normal for a first-time contributor's PR until the owner approves it.
+- 2026-11-08: No maintainer feedback yet. CodeRabbit (the repo's AI review bot) left two "Trivial / Low value" nitpicks: assert that `mute()` clears each scheduled event, and add a regression test for `solo()` clearing the other tracks' events.
+- 2026-11-08: I added the `solo()` test (commit 280eb19; it fails if `events.clear()` is removed from `solo()`), pushed it to the PR, and replied on the thread that I'd left the mute assertion out because it covers behaviour this PR doesn't change: https://github.com/Babali42/DrumBeatRepo/pull/633#issuecomment-6718011865
 
 **Status:** Awaiting review
 
@@ -273,25 +277,31 @@ Config cleanup (commit a5e6477). My scoped orientation run said every `'off'` fu
 
 **Technical Skills Gained**
 
-[What you learned technically, named concretely.]
+- How ESLint's flat config layers its blocks: every block that matches a file is merged in order, so a later block (like the test-files block) overrides an earlier one (like the TypeScript custom-rules block) for the files both match.
+- Using `npx eslint --print-config <file>` to see which rules actually run for a file, and comparing its output before and after a change to prove a config edit changes nothing.
+- Why `'off'` can be a no-op: rules from a plugin only run if a preset or a block turns them on, and this config loads no `eslint-plugin-functional` preset, so the functional rules set to `'off'` were never on.
+- Writing a regression test that fails without the fix: my `solo()` test passes with `events.clear()` and fails with it removed (`Expected 2 to be 0`), which is how I know it guards the line.
 
 **Challenges Overcome**
 
-[What was hard and how you solved it; point at the real events, the
-Toolkit blocks above are full of them.]
+- The issue said there were about 75 warnings, but I could only see 3. Instead of guessing, I asked on the thread with what I'd run, and the owner explained the 75 came from the owner-only Security & Quality tab and narrowed the scope to the 3.
+- `npm run lint` failed with ENOENT from the repo root, because the frontend has its own `package.json`; running it from `frontend/` fixed it, and I wrote that down in my `CLAUDE.local.md` so I wouldn't hit it again.
+- The owner's wording on "consistency" between the rule blocks could mean more than one thing. I picked a concrete reading (the test block turns off exactly the active functional rules), named it as an unknown in my plan, and stated it in the PR so the owner can correct me.
 
 **What I'd Do Differently Next Time**
 
-[Reflection on your process.]
+- Add a regression test for any code I move before opening the PR, instead of after a reviewer (CodeRabbit, in this case) points out the gap.
+- Ask the scope question even earlier, in my first comment, before doing any work on the code.
+- Not give a date for the PR when I claim an issue. My first claim said "I can open a PR this week"; next time I'll say what my first step is and when I'll report back, which is a promise I control.
 
 ---
 
 ## Resources Used
 
-[What actually helped, not a reading list. List things this story
-already shows you using: the doc you followed to set the environment
-up, the thread that explained the bug, the person who answered you.
-One real entry beats ten plausible ones.]
-
-- [Link to documentation that helped]
-- [Discussion, issue, or post that helped]
+- The owner's reply on #627, which explained the 75 warnings and set my scope: https://github.com/Babali42/DrumBeatRepo/issues/627#issuecomment-6653801806
+- The README's Contribution Workflow section (fork, branch from `main`, pass all tests, open a PR), the repo's only stated contribution rules: https://github.com/Babali42/DrumBeatRepo#contribution-workflow
+- `.github/workflows/tests.yml` and the actions it calls, the source of every check in my ship manifest: https://github.com/Babali42/DrumBeatRepo/blob/main/.github/workflows/tests.yml
+- ESLint's docs on `--print-config` and flat config files, for how blocks merge and how to see the rules that actually run: https://eslint.org/docs/latest/use/command-line-interface#--print-config and https://eslint.org/docs/latest/use/configure/configuration-files
+- The typescript-eslint shared configs (presets), to check which rules `recommendedTypeChecked` turns on or off, for my question about the other no-op entries: https://typescript-eslint.io/users/configs
+- CodeRabbit's review on my PR, which pointed out that no test covered `solo()` and led to my regression test: https://github.com/Babali42/DrumBeatRepo/pull/633
+- The AI301 class recording on contributing to open source.
