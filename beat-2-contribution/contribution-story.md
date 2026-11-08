@@ -95,26 +95,28 @@ An honest read of the scout: its rubric was right every time I checked. I verifi
 
 **Problem Description**
 
-[In your own words, what is broken or missing?]
+The frontend lint has 3 warnings. Two are `eslint-disable` comments for rules that no longer apply, and one needs a small refactor so a `Map` parameter can be readonly. The ESLint config also has leftover functional rules set to `'off'` that should be removed, and its TypeScript-file rules and test-file rules aren't consistent with each other.
 
 **Expected Behavior**
 
-[What should happen?]
+A clean lint: the two unused disable comments removed, and the function refactored to take a readonly map, with `events.clear()` moved to the caller that needs it. A tidier config: the `'off'` functional rules removed, and the functional rules kept consistent between the TypeScript-file block and the test-file block.
 
 **Current Behavior**
 
-[What actually happens?]
+`npm run lint` on `main` (9fe7728) reports 3 warnings and 0 errors, so it passes CI's 30-warning limit but isn't clean. The config's `'off'` functional rules do nothing, because those rules were never turned on, and the test block switches off two of those no-op rules alongside the four that are really active.
 
 **Affected Components**
 
-[Which parts of the codebase are involved?]
+- `frontend/src/app/ui/services/sequencer/sequencer.service.ts` (`dispatch()`)
+- `frontend/src/app/infrastructure/adapters/audio-engine/audio-engine.adapter.ts` (`clearTrackEvents()`, `solo()`, `mute()`)
+- `frontend/eslint.config.mjs` (TypeScript custom-rules block, components block, test-files block)
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code, used for one scoped orientation run over `frontend/eslint.config.mjs` and the files it lints (the run my `CLAUDE.local.md` template asks for), plus `npx eslint --print-config` to check what it told me.
+- What it produced: a map of the config's blocks and the finding that every functional rule set to `'off'` is a no-op, because no `eslint-plugin-functional` preset is loaded, so only four functional rules actually run.
+- Difficulties: the summary came back as long tables that were hard to read in the terminal, and its main claim was too important to take on trust; the issue text (75 warnings) also didn't match what I could see (3).
+- What changed: I confirmed the no-op claim with `--print-config` on a service, a component, and a spec before relying on it, added the conclusions to `CLAUDE.local.md`, and used the owner's reply instead of the issue text as the scope.
 
 ---
 
@@ -163,29 +165,41 @@ Challenges: `npm run lint` from the repo root fails with ENOENT because the fron
 
 **Analysis**
 
-[Your analysis of the root cause: what is causing the issue, traced
-to the files and functions involved.]
+The three ESLint warnings have two causes, and the config clutter has a third.
+
+- `frontend/src/app/ui/services/sequencer/sequencer.service.ts`, `dispatch()` (l63, l65): two `eslint-disable-next-line` comments suppress `@typescript-eslint/no-unsafe-*` rules on the `SequencerEngine.dispatch()` and `SequencerEngine.getState()` calls. `src/types/engine.d.ts` now declares `SequencerEngine` globally with typed methods, so those calls no longer trip the rules, and ESLint 9 reports the comments as unused directives.
+- `frontend/src/app/infrastructure/adapters/audio-engine/audio-engine.adapter.ts`, `clearTrackEvents()` (l218): the parameter is a mutable `Map<number, WAAClock.Event>`, which `functional/prefer-readonly-type` flags. The function also calls `events.clear()`, which is why the type couldn't simply be made readonly.
+- `frontend/eslint.config.mjs`: the config registers `eslint-plugin-functional` but loads none of its presets, so a functional rule only runs if a block turns it on. Only four are on (`no-let`, `prefer-readonly-type`, `immutable-data`, `no-mixed-types`, all `warn`). Every functional rule set to `'off'` (TypeScript custom-rules block l71-75, components block l98-99) switches off a rule that was never on, and the test block (l124) also turns off two of those no-op rules (l134, l136) next to the four real ones. I confirmed this with `npx eslint --print-config` on a service, a component, and a spec file.
 
 **Proposed Solution**
 
-[High-level description of your fix approach, and what you are
-deliberately NOT changing.]
+Fix the three warnings at their source, then remove the no-op functional rules and make the test block switch off exactly the functional rules that are active, as the owner asked on the issue (2026-11-05).
+
+- `sequencer.service.ts`: delete the two unused disable comments.
+- `audio-engine.adapter.ts`: change the `clearTrackEvents()` parameter to `ReadonlyMap`, and move `events.clear()` into `solo()`, its only caller that keeps the map. `mute()` deletes the map from `trackStepMap` right after, so it never needed clearing.
+- `eslint.config.mjs`: delete the `'off'` functional entries at l71-75 and l98-99, and remove `type-declaration-immutability` and `prefer-property-signatures` from the test block so its functional list matches the four active rules.
+
+Deliberately not changing: the four active functional rules or their options; the ~30 `eslint-disable` comments that target active rules; `@typescript-eslint/prefer-readonly-parameter-types: 'off'` (l53), which is also a no-op but is a typescript-eslint rule, not a functional one, so I'll mention it to the owner instead; any non-functional rule; the ~75 Security & Quality findings the owner said are out of scope; and the CI workflows, which the owner said they'd look at.
 
 **Implementation Plan**
 
-1. [Modify file X to do Y]
-2. [Add or change Z]
-3. [Update tests]
+1. Fix the three warnings in `sequencer.service.ts` and `audio-engine.adapter.ts` (done on branch `627-chore-remove-some-warnings`, commit 248ccf1).
+2. Before touching the config, save `npx eslint --print-config` output for `sequencer.service.ts`, `app.component.ts`, and `sequencer.service.spec.ts`.
+3. In `eslint.config.mjs`, delete the no-op `'off'` functional entries at l71-75 and l98-99.
+4. In the test block, remove `functional/type-declaration-immutability` and `functional/prefer-property-signatures`, leaving the four active functional rules switched off.
+5. Re-run `--print-config` on the same three files: the effective rules must be identical except for the removed entries that were already `0`. Then run `npm run lint` (expect 0 problems), Karma, Vitest, and the Scala tests.
+6. Commit the config cleanup separately from the warning fix, each with a message that says what it changes.
 
-[Record deviations here as they happen: what changed mid-build and
-why. A recorded deviation is honest work; silent drift is not.]
+Unknowns: I'm reading the owner's "verify the consistency" between the two blocks as "the test block switches off exactly the functional rules that are active". It could also mean matching their comment style (inline comments vs. one heading per group) or lining up the typed-rule overrides. I'll name my reading in the PR description and adjust if the owner meant something else.
+
+Deviations: none yet.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: plan-check, run from my clone on `plan.md` (this section) and a short draft comment in `plan-comment.md` against #627.
+- What it produced: The first run graded reject only because I hadn't created `plan-comment.md` yet; the plan itself already passed. The second run graded accept, passing every required check (cause-grounded, scope-bounded, executable, test-decisive, thread-direction-engaged, ai-policy-honored) and failing the preferred unknowns-stated check, because my plan presented my reading of "verify the consistency" as settled.
+- Difficulties: Its notes also caught that my comment said "I plan to remove" things I'd already done in commit 248ccf1, and that it never tied my plan back to the owner's three steps. It flagged gaps in my own skill files too: its procedure looks for a `Repo:` line my scope doesn't have, and its evidence guide expects the draft to be called `comment.md`.
+- What changed: I added an Unknowns note to the plan naming the other readings of "consistency", rewrote the comment to start from the owner's three steps and say which part is already done, and kept the comment off the issue thread. The skill-file gaps are for my unit-9 portfolio.
 
 ---
 
