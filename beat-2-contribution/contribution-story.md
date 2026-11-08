@@ -203,12 +203,11 @@ Deviations: 2026-11-08, after the PR opened, I added a regression test for `solo
 
 ## Testing Strategy
 
-Three observable checks, all run on 2026-11-07 on branch `627-chore-remove-some-warnings` (248ccf1 + a5e6477) on top of upstream `main` 9fe7728.
+Four observable checks on branch `627-chore-remove-some-warnings` on top of upstream `main` 9fe7728: the first three run on 2026-11-07 (248ccf1 + a5e6477), the fourth added on 2026-11-08 (280eb19).
 
 1. **The reproduction, re-run.** `cd frontend && npm run lint` reported 3 warnings on `main` (`functional/prefer-readonly-type` at audio-engine.adapter.ts:218, and unused eslint-disable directives at sequencer.service.ts:63 and :65). On the branch it reports 0 problems and exits 0.
 2. **The config cleanup changes nothing that gets linted.** I saved `npx eslint --print-config` for a service (`sequencer.service.ts`), a component (`app.component.ts`), and a spec (`sequencer.service.spec.ts`) before deleting the 9 lines, and again after. In all three, the only differences are the removed `functional/*` entries, every one of which was `0`; no rule was added or changed severity.
 3. **The repo's own CI checks**, run from the clone root as listed in my ship manifest (taken from `.github/workflows/tests.yml`): Karma `npm run test-ci` 91/91 pass, which includes `sequencer.service.spec.ts` and `audio-engine.adapter.spec.ts`, the tests for both files I changed; Vitest `npm run test-vitest-coverage` 29/29 pass; Scala `sbt testFull` 37/37 pass. CI's i18n check passes on `main` but isn't in my manifest because this PR touches no translation files.
-
 4. **A regression test for the moved `events.clear()`** (added after the PR opened, commit 280eb19). When I opened the PR I hadn't added a test, because the lint run is the check that fails before and passes after, and I assumed the existing `audio-engine.adapter.spec.ts` covered `clearTrackEvents()`. CodeRabbit's review pointed out that nothing tested `solo()`, the function I moved `events.clear()` into, and that was true. The new test plays two tracks, solos one through `syncTracks()`, and checks that the other track's event map is empty. Karma now passes 92/92, and with `events.clear()` temporarily removed from `solo()` the new test fails (`Expected 2 to be 0`), so it guards the line my PR moved.
 
 **Toolkit**
@@ -245,7 +244,7 @@ Opened PR #633 after a second ship-gate PASS. CodeRabbit reviewed it within minu
 **Toolkit**
 
 - Tool: Claude Code working in my clone with `CLAUDE.local.md` loaded, so each session started with the scope, the file map, and the test commands instead of re-reading the repo.
-- What it produced: the two commits on my branch (248ccf1 for the warnings, a5e6477 for the config), each checked against my plan, plus the before/after `--print-config` comparison that proved the config change was behavior-neutral.
+- What it produced: the three commits on my branch (248ccf1 for the warnings, a5e6477 for the config, 280eb19 for the `solo()` regression test), each checked against my plan, plus the before/after `--print-config` comparison that proved the config change was behavior-neutral.
 - Difficulties: the memory file was only as good as what I'd verified: it said "Karma not run yet" until I ran it, and its first test-command list missed that Karma, not Vitest, covers the files I changed.
 - What changed: I updated `CLAUDE.local.md` as I learned (Karma result, manifest, the "off rules are no-ops" finding) and made the edits to `eslint.config.mjs` myself so I'd understand each line I removed.
 
