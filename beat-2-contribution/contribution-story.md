@@ -11,7 +11,7 @@ files and no evidence uploads are part of Assignment 5.
 **Student:** Carlos Sac
 **GitHub Username:** CarlosSac
 **Issue:** https://github.com/Babali42/DrumBeatRepo/issues/627
-**Pull Request:** [GitHub PR link, once opened]
+**Pull Request:** https://github.com/Babali42/DrumBeatRepo/pull/633
 
 One repository, built across units 5 to 8, telling the whole story of your real
 contribution. Fill it as you work, not at the end — the sections below ask for evidence that
@@ -62,10 +62,9 @@ I turned my Unit 1 issue-select skill into issue-scout by writing seven `gh sear
 
 I merged my three voice-guide copies into one guide at `~/.claude/voice-guard/`, added Upstream rules for claims, questions, and pings, and wired the hook; the wiring test was blocked as intended, and my follow-up reply on #627 went out with a logged `[hook] pass`. Writing the rules exposed conflicts in my own guide: my old "Admit it's a first contribution" rule would have forced that line into every comment, and my never-post list banned the PR timeline my posted claim had used, so I rewrote the first rule and made claims name a report-back time instead of a PR date. For the repo I wrote a 35-line `CLAUDE.local.md` (kept out of my PR with `.git/info/exclude`); its scoped orientation run found that every FP rule set to `'off'` in `eslint.config.mjs` was a no-op, which I didn't trust until `eslint --print-config` confirmed it, and then I added it to the file along with traps like the `.angular/cache` noise.
 
-**Unit 7: [one line on the tool work]**
+**Unit 7: Installed the ship-gate, built a four-check manifest from the repo's CI, and opened PR #633 through it**
 
-[2-4 sentences: the ship-gate and your gate manifest. What it produced
-on your real branch, what fought you, what changed because of it.]
+I built my ship manifest from `.github/workflows/tests.yml` (ESLint, Karma, Vitest with coverage, and the Scala tests) and ran each command from the clone root on `main` before changing code; I almost excluded Karma because Chrome crashed inside Claude Code's sandbox, until it passed 91/91 outside it and I found that Karma, not Vitest, runs the tests for both files I changed. On my branch the ship-gate passed all four checks and all eight pr-precheck checks, but its voice-guide notes caught a claim in my PR draft (that `no-unused-vars` was a no-op) with no output behind it and a line that read close to a promise. I added the preset output to `test_evidence.md`, reworded both lines, re-ran the voice guard and ship-gate to a second PASS, and opened PR #633 through Claude Code, where the hook let it through on that PASS.
 
 **Unit 8: [one line on the tool work]**
 
@@ -205,65 +204,68 @@ Deviations: none yet.
 
 ## Testing Strategy
 
-[What observable checks prove the fix: your reproduction steps re-run
-against the built change (before and after), and the repo's own test
-suite or checks with the outcome shown. "Tests pass" with nothing
-observable named is not a strategy.]
+Three observable checks, all run on 2026-11-07 on branch `627-chore-remove-some-warnings` (248ccf1 + a5e6477) on top of upstream `main` 9fe7728.
+
+1. **The reproduction, re-run.** `cd frontend && npm run lint` reported 3 warnings on `main` (`functional/prefer-readonly-type` at audio-engine.adapter.ts:218, and unused eslint-disable directives at sequencer.service.ts:63 and :65). On the branch it reports 0 problems and exits 0.
+2. **The config cleanup changes nothing that gets linted.** I saved `npx eslint --print-config` for a service (`sequencer.service.ts`), a component (`app.component.ts`), and a spec (`sequencer.service.spec.ts`) before deleting the 9 lines, and again after. In all three, the only differences are the removed `functional/*` entries, every one of which was `0`; no rule was added or changed severity.
+3. **The repo's own CI checks**, run from the clone root as listed in my ship manifest (taken from `.github/workflows/tests.yml`): Karma `npm run test-ci` 91/91 pass, which includes `sequencer.service.spec.ts` and `audio-engine.adapter.spec.ts`, the tests for both files I changed; Vitest `npm run test-vitest-coverage` 29/29 pass; Scala `sbt testFull` 37/37 pass. CI's i18n check passes on `main` but isn't in my manifest because this PR touches no translation files.
+
+I didn't add a new test: the change is to lint findings and lint config, and the lint run itself is the check that fails before and passes after. The `clearTrackEvents()` change is covered by the existing `audio-engine.adapter.spec.ts`.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: my ship manifest (`ship-manifest.md`) as the list of checks to run, plus `npx eslint --print-config` for the before/after config comparison; the outputs are collected in `test_evidence.md` in my clone.
+- What it produced: before/after lint output (3 warnings to 0), a per-file comparison showing only `0` entries removed, and passing runs of Karma (91), Vitest (29), and Scala (37).
+- Difficulties: Karma couldn't start Chrome inside Claude Code's sandbox (`Failed to get the path for 1001`), which looked like a broken setup until it passed 91/91 outside the sandbox; and Karma, not Vitest, is the suite that tests my changed files, which I only found by checking which spec files import them.
+- What changed: I confirmed Chrome was installed and working so Karma could be a must-pass check instead of an excluded one, and kept the i18n check in the manifest's excluded table with a dated reason rather than dropping it silently.
 
 ---
 
 ## Implementation Notes
 
-[A running log, added to as you work. Date each entry. What you
-built, decisions you made when you made them, wrong turns included.]
+**2026-11-04**
 
-**[Date]**
+Ran `npm run lint` from the repo root first and got ENOENT: the frontend has its own `package.json` in `frontend/`. From `frontend/` on 816e902 it showed 3 warnings, not the ~75 the issue mentions, so I asked the owner on the thread where the 75 came from and which functional rules they wanted off.
 
-[Entry]
+**2026-11-05**
 
-**[Date]**
+The owner replied: the 75 are in the owner-only Security & Quality tab and mostly stale. They set the scope as fixing the 3 warnings, removing the functional rules already set to `'off'`, and making the l27 and l123 blocks consistent. I treated this reply, not the issue body, as my scope from here on.
 
-[Entry]
+**2026-11-07**
+
+Fixed the 3 warnings (commit 248ccf1). Decision: `clearTrackEvents()` couldn't just take a readonly type because it also called `events.clear()`. It has two callers, so I moved the clear into `solo()` after checking that `mute()` deletes the map from `trackStepMap` on the next line. I re-ran the lint on clean upstream `main` (9fe7728) to confirm the 3 warnings still exist there.
+
+**2026-11-07**
+
+Config cleanup (commit a5e6477). My scoped orientation run said every `'off'` functional rule was a no-op; before trusting it I saved `--print-config` output for a service, a component, and a spec, deleted the 9 lines, and compared: only the removed entries (all `0`) differ. Lint now reports 0 problems, and Karma (91), Vitest (29), and the Scala tests (37) all pass. Decisions: I left l53 (`prefer-readonly-parameter-types`) and the test block's `no-unused-vars` alone because they aren't functional rules, and I'll mention them in the PR; I included the components block's two `'off'` lines even though the owner only named l27 and l123, because they're the same kind of no-op. Wrong turn: Karma first failed with `Failed to get the path for 1001` because Chrome couldn't start inside Claude Code's sandbox; run outside it, all 91 tests passed.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code working in my clone with `CLAUDE.local.md` loaded, so each session started with the scope, the file map, and the test commands instead of re-reading the repo.
+- What it produced: the two commits on my branch (248ccf1 for the warnings, a5e6477 for the config), each checked against my plan, plus the before/after `--print-config` comparison that proved the config change was behavior-neutral.
+- Difficulties: the memory file was only as good as what I'd verified: it said "Karma not run yet" until I ran it, and its first test-command list missed that Karma, not Vitest, covers the files I changed.
+- What changed: I updated `CLAUDE.local.md` as I learned (Karma result, manifest, the "off rules are no-ops" finding) and made the edits to `eslint.config.mjs` myself so I'd understand each line I removed.
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when opened]
+**PR Link:** https://github.com/Babali42/DrumBeatRepo/pull/633 (opened 2026-11-08, title "Fix the 3 frontend lint warnings and remove no-op FP rules", 2 commits, 3 files, +2/-14)
 
-**PR Description:** [what the PR says; much of the content above
-adapts into it]
+**PR Description:** It starts with `Fixes #627` and follows the owner's three steps from the thread: (1) the 3 lint warnings, removing the two unused disable comments and making `clearTrackEvents()` take a `ReadonlyMap` with `events.clear()` moved into `solo()`; (2) removing the functional rules set to `'off'`, since no plugin preset is loaded and they were never on (5 in the TypeScript block, 2 in the component block); (3) consistency, so the test block switches off exactly the four active functional rules, with an offer to also match the comment style if that's what the owner meant. "How I checked it" shows `npm run lint` going from 3 warnings on main (9fe7728) to 0 on the branch, the `--print-config` comparison, and Karma 91/91, Vitest 29/29, and `sbt testFull` 37/37. It asks one question: whether to also remove l53 and the test block's `no-unused-vars`, which are no-ops too but not functional rules. An "AI use" section says I used Claude Code to trace the causes, run the comparison and test suites, and draft the description, and that I made the code and config changes and checked the results myself.
 
 **Maintainer Feedback:**
 
-- [Date]: [feedback received, or "none yet"; silence is a normal
-  state and costs you nothing]
-- [Date]: [how you addressed it]
+- 2026-11-08: none yet. CodeRabbit (the repo's AI review bot) started a review; the repo's own "Tests" workflow hadn't run yet, which is normal for a first-time contributor's PR until the owner approves it.
 
-**Status:** [Awaiting review / Iterating / Merged / Closed. The
-status is a fact you record, never a grade: the PR is graded as
-opened.]
+**Status:** Awaiting review
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: the ship-gate (`check_gate.py`), run on my branch with `--branch --title ... --body-file pr_draft.md`, driven by my `ship-manifest.md` (lint, Karma, Vitest, Scala) and my pr-precheck; it also guarded the `gh pr create` hook.
+- What it produced: two PASS runs. The first passed all four repo checks and all eight pr-precheck checks, but its voice-guide notes said my question about `no-unused-vars` had no output behind it and that "I can do that in a follow-up" read close to a promise. The second PASS came after I fixed both, and the PR opened through Claude Code with the hook honoring that PASS instead of re-running.
+- Difficulties: the hook test showed only one of the two expected stops on screen, so I had to read both guard logs to confirm both hooks fired; Karma first looked impossible to run (Chrome crashed inside Claude Code's sandbox); and pr-precheck pointed out that "capped at four checks" in my manifest is my reason, not the repo's.
+- What changed: I added the preset output for `no-unused-vars` and l53 to `test_evidence.md`, rewrote the follow-up line and simplified the closing question, made Karma a must-pass check once I knew it covers my changed files, and re-ran the voice guard and ship-gate before opening the PR.
 
 ---
 
